@@ -12,6 +12,13 @@ public interface ShipRepo extends JpaRepository<Ship, Long> {
 
     Ship findAllById(Long id);
 
+    List<Ship> findAllByOrderByIdAsc();
+
+    List<Ship> findAllByOrderBySpeedAsc();
+
+    List<Ship> findAllByOrderByProdDateAsc();
+
+    List<Ship> findAllByOrderByRatingAsc();
 
 
 
