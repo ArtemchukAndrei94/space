@@ -7,7 +7,7 @@ import java.util.Date;
 public class Ship {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String name;
@@ -95,26 +95,41 @@ public class Ship {
         this.rating = rating;
     }
 
+    @Override
+    public String toString() {
+        return "Ship{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", planet='" + planet + '\'' +
+                ", shipType=" + shipType +
+                ", prodDate=" + prodDate +
+                ", isUsed=" + isUsed +
+                ", speed=" + speed +
+                ", crewSize=" + crewSize +
+                ", rating=" + rating +
+                '}';
+    }
+
     public Ship updateData(Ship ship) {
-        if (this.getName() != null && !this.getName().equals(ship.getName()))
+        if (ship.getName() != null )
             this.setName(ship.getName());
 
-        if (this.getPlanet() != null && !this.getPlanet().equals(ship.getPlanet()))
+        if (ship.getPlanet() != null /*&& !this.getPlanet().equals(ship.getPlanet())*/)
             this.setPlanet(ship.getPlanet());
 
-        if (this.getShipType() != null  && this.getShipType() != ship.getShipType())
+        if (ship.getShipType() != null  /*&& this.getShipType() != ship.getShipType()*/)
             this.setShipType(ship.getShipType());
 
-        if (this.getProdDate() != null && this.getProdDate() != ship.getProdDate())
+        if (ship.getProdDate() != null /*&& this.getProdDate() != ship.getProdDate()*/)
             this.setProdDate(ship.getProdDate());
 
-        if (this.isUsed() != null && this.isUsed() != ship.isUsed)
+        if (ship.isUsed() != null /*&& this.isUsed() != ship.isUsed*/)
             this.setIsUsed(ship.isUsed());
 
-        if (this.getSpeed() != null && this.getSpeed() != ship.getSpeed())
-            this.setSpeed(ship.getSpeed());
+        if (ship.getSpeed() != null /*&& this.getSpeed() != ship.getSpeed()*/)
+            this.setSpeed(Math.round(ship.getSpeed() * 100.00 ) / 100.00);
 
-        if (this.getCrewSize() != null && this.getCrewSize() != ship.getCrewSize())
+        if (ship.getCrewSize() != null /*&& this.getCrewSize() != ship.getCrewSize()*/)
             this.setCrewSize(ship.getCrewSize());
 
 

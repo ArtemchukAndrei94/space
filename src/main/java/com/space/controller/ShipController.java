@@ -8,11 +8,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -88,6 +88,8 @@ public class ShipController {
             shipList = getShipInfosByMaxRating(maxRating, shipList);
 
 
+
+
         shipList = getShipInfosByPage(pageNumber, pageSize, shipList);
 
         return  shipList;
@@ -152,38 +154,51 @@ public class ShipController {
 
     }
 
-    /*
-    Мы не можем создать корабль, если:
-    - длина значения параметра “name” или “planet” превышает размер соответствующего поля в БД (50 символов);
-    - указаны не все параметры из Data Params (кроме isUsed);
-    - значение параметра “name” или “planet” пустая строка;
-    - скорость или размер команды находятся вне заданных пределов;
-    - “prodDate”:[Long] < 0;
-    - год производства находятся вне заданных пределов.
-    В случае всего вышеперечисленного необходимо ответить ошибкой с кодом 400.
-     */
+
     @RequestMapping(value = "/ships", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
-    public ResponseEntity<?> create(@RequestBody Ship ship, UriComponentsBuilder ucBuilder) {
+    public ResponseEntity<?> create(@RequestBody Ship ship) {
 
-        // Проверка ship на заполеность всех полей
-        // потом отрефакторить в сервис скорее всего
+        if (ship.isUsed() == null)
+            ship.setIsUsed(false);
 
-        List<Ship> ships = shipRepo.findAll();
+        if (ship.getSpeed() != null)
+            ship.setSpeed(Math.round(ship.getSpeed() * 100.00 ) / 100.00);
+
+        if (ship.getName() != null && ship.getPlanet() != null && ship.getProdDate() != null  && ship.getSpeed() != null && ship.getCrewSize() != null)
+            if (ship.getName().length() <= 50 && !ship.getName().equals(""))
+                if (ship.getPlanet().length() <= 50 && !ship.getPlanet().equals(""))
+                    if (ship.getCrewSize() >= 1 && ship.getCrewSize() <= 9999)
+                        if (ship.getSpeed() >= 0.01 && ship.getSpeed() <= 0.99)
+                            if (ship.getProdDate().getTime() >= 0 && ship.getProdDate().getTime() >= 26192235600000L && ship.getProdDate().getTime() <= 33103198800000L) {
+                                Double k;
+                                Calendar calendar = new GregorianCalendar();
+                                calendar.setTime(ship.getProdDate());
+
+                                Integer year = calendar.get(Calendar.YEAR);
 
 
-        /*if (ships.contains(ship)) {
-            logger.error("Unable to create. A User with name {} already exist", user.getName());
-            return new ResponseEntity(new CustomErrorType("Unable to create. A User with name " +
-                    user.getName() + " already exist."),HttpStatus.CONFLICT);
-        }
-        userService.saveUser(user);
+                                if (ship.isUsed())
+                                    k = 0.5;
+                                else
+                                    k = 1.0;
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(ucBuilder.path("/api/user/{id}").buildAndExpand(user.getId()).toUri());
-        return new ResponseEntity<String>(headers, HttpStatus.CREATED);*/
-        HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(ucBuilder.path("/api/user/{id}").buildAndExpand(ship.getId()).toUri());
-        return new ResponseEntity<String>(headers, HttpStatus.CREATED);
+                                Double rating = 80 * ship.getSpeed() * k / (3019 - year + 1);
+                                rating = Math.round(rating * 100.00 ) / 100.00;
+
+                                ship.setRating(rating);
+
+
+                                return new ResponseEntity<Ship>(shipRepo.save(ship), HttpStatus.OK);
+                            }
+
+
+
+
+
+
+
+
+        return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
     }
 
 
@@ -191,9 +206,24 @@ public class ShipController {
     Если корабль не найден в БД, необходимо ответить ошибкой с кодом 404.
     Если значение id не валидное, необходимо ответить ошибкой с кодом 400.
      */
-    @GetMapping("/ships/{id}")
-    public Ship getShipId(@PathVariable("id") Long id) {
-        return shipRepo.findAllById(id);
+    @RequestMapping(value = "/ships/{id}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+    public ResponseEntity<?> getShipId(@PathVariable("id")  Long id) {
+
+
+
+        if (id <= 0)
+            return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
+
+        List<Ship> ships = shipRepo.findAll();
+
+//        if (ships.size() < id)
+//            return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
+
+        Ship ship = shipRepo.findAllById(id);
+        if (ship == null)
+            return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
+        else
+            return new ResponseEntity<Ship>(ship, HttpStatus.OK);
     }
 
 
@@ -203,20 +233,32 @@ public class ShipController {
     Если корабль не найден в БД, необходимо ответить ошибкой с кодом 404.
     Если значение id не валидное, необходимо ответить ошибкой с кодом 400.
      */
-    @PostMapping("/ships/{id}")
-    public Ship update(@PathVariable("id") Long id,
-                       @RequestBody Ship ship) {
-        Ship shipFromDB = shipRepo.findAllById(id);
+    @RequestMapping(value = "/ships/{id}", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+    public ResponseEntity<?> update(@PathVariable("id") Long id,
+                       @RequestBody(required = false) Ship ship) {
 
-        return shipRepo.save(shipFromDB.updateData(ship));
+
+
+        return new ResponseEntity<Ship>( HttpStatus.OK);
 
     }
 
 
-    // Нужно ответить если корабль не найден 404 ошибкой, а если не валидное id 400 ошибкой НЕ ЗАБЫТЬ!!!
-    @DeleteMapping("/ships/{id}")
-    public void delete(@PathVariable("id") Ship ship) {
-        shipRepo.delete(ship);
+   // READY
+    @RequestMapping(value = "/ships/{id}", method = RequestMethod.DELETE, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+    public ResponseEntity<?> delete(@PathVariable("id") Long id) {
+
+        if (id <= 0)
+            return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
+
+        Ship shipFromDb = shipRepo.findAllById(id);
+
+        if (shipFromDb == null)
+            return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
+
+        shipRepo.delete(shipFromDb);
+        return new ResponseEntity<Ship>(HttpStatus.OK);
+
     }
 
 
@@ -451,7 +493,23 @@ public class ShipController {
         if (order == ShipOrder.ID) {
             ships.sort((o1, o2) -> (int) (o1.getId() - o2.getId()));
         } else if (order == ShipOrder.DATE) {
-            ships.sort((o1, o2) -> (int) (o1.getProdDate().getTime() - o2.getProdDate().getTime()));
+            //Старая строка
+            /*ships.sort((o1, o2) -> (int) (o1.getProdDate().getTime() - o2.getProdDate().getTime()));*/
+
+                ships.sort((o1, o2) -> {
+
+                Calendar calendar1 = new GregorianCalendar();
+                calendar1.setTime(o1.getProdDate());
+                Integer year1 = calendar1.get(Calendar.YEAR);
+
+                Calendar calendar2 = new GregorianCalendar();
+                calendar2.setTime(o2.getProdDate());
+                Integer year2 = calendar2.get(Calendar.YEAR);
+
+                return year1 - year2;
+
+            });
+
         } else if (order == ShipOrder.SPEED) {
             ships.sort((o1, o2) -> {
                 if (o1.getSpeed() > o2.getSpeed())
