@@ -4,16 +4,12 @@ import com.space.model.Ship;
 import com.space.model.ShipType;
 import com.space.repository.ShipRepo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/rest")
@@ -237,9 +233,69 @@ public class ShipController {
     public ResponseEntity<?> update(@PathVariable("id") Long id,
                        @RequestBody(required = false) Ship ship) {
 
+        List<Ship> shipList = shipRepo.findAll();
+
+        if (shipList.size() < id)
+            return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
 
 
-        return new ResponseEntity<Ship>( HttpStatus.OK);
+        if(id == null || id <= 0  || !testShipUpdate(ship))
+            return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
+
+
+        Ship shipFromDb = shipRepo.findAllById(id);
+
+        if (shipFromDb == null)
+            return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
+
+        shipFromDb.setId(id);
+
+        if (ship.getName() != null)
+            shipFromDb.setName(ship.getName());
+
+        if (ship.getPlanet() != null)
+            shipFromDb.setPlanet(ship.getPlanet());
+
+        if (ship.getShipType() != null)
+            shipFromDb.setShipType(ship.getShipType());
+
+        if (ship.getProdDate() != null)
+            shipFromDb.setProdDate(ship.getProdDate());
+
+        if (ship.getName() != null)
+            shipFromDb.setName(ship.getName());
+
+        if (ship.isUsed() != null)
+            shipFromDb.setIsUsed(ship.isUsed());
+
+        if (ship.getSpeed() != null)
+            shipFromDb.setSpeed(ship.getSpeed());
+
+        if (ship.getCrewSize() != null)
+            shipFromDb.setCrewSize(ship.getCrewSize());
+
+
+        Double k;
+        Calendar calendar = new GregorianCalendar();
+        calendar.setTime(shipFromDb.getProdDate());
+
+        Integer year = calendar.get(Calendar.YEAR);
+
+
+        if (shipFromDb.isUsed())
+            k = 0.5;
+        else
+            k = 1.0;
+
+        Double rating = 80 * shipFromDb.getSpeed() * k / (3019 - year + 1);
+        rating = Math.round(rating * 100.00 ) / 100.00;
+
+        shipFromDb.setRating(rating);
+
+        ship = shipRepo.save(shipFromDb);
+
+
+        return new ResponseEntity<Ship>(ship, HttpStatus.OK);
 
     }
 
@@ -300,72 +356,6 @@ public class ShipController {
         return ships;
     }
 
-    /*private List<Ship> filterShips(String name,
-                                   String planet,
-                                   ShipType shipType,
-                                   Long after, Long before,
-                                   Boolean isUsed,
-                                   Double minSpeed, Double maxSpeed,
-                                   Integer minCrewSize, Integer maxCrewSize,
-                                   Double minRating, Double maxRating,
-                                   List<Ship> ships) {
-
-        List<Ship> filterShips = ships;
-
-        Long millis2800 = 26192235600000L;
-        Long millis3019 = 33103198800000L;
-
-
-        if (name != null && !name.equals(""))
-            filterShips = filterShips.stream().filter((ship -> ship.getName().contains(name))).collect(Collectors.toList());
-
-
-        if (planet != null && !planet.equals(""))
-            filterShips = filterShips.stream().filter((ship -> ship.getPlanet().contains(planet))).collect(Collectors.toList());
-
-
-        if (shipType != null) {
-            switch (shipType) {
-                case MILITARY:
-                    filterShips = filterShips.stream().filter(ship -> ship.getShipType() == ShipType.MILITARY).collect(Collectors.toList());
-                    break;
-                case MERCHANT:
-                    filterShips = filterShips.stream().filter(ship -> ship.getShipType() == ShipType.MERCHANT).collect(Collectors.toList());
-                    break;
-                case TRANSPORT:
-                    filterShips = filterShips.stream().filter(ship -> ship.getShipType() == ShipType.TRANSPORT).collect(Collectors.toList());
-                    break;
-
-            }
-        }
-
-
-
-
-        if (after >= millis2800  && before <= millis3019)
-            filterShips = filterShips.stream().filter((ship -> ship.getProdDate().getTime() >= after && ship.getProdDate().getTime() <= before)).collect(Collectors.toList());
-
-
-        if (isUsed != null){
-            if (isUsed)
-                filterShips = filterShips.stream().filter((ship -> ship.isUsed())).collect(Collectors.toList());
-            else
-                filterShips = filterShips.stream().filter((ship -> !ship.isUsed())).collect(Collectors.toList());
-        }
-
-
-        if (minSpeed >= 0.01 && maxSpeed <= 0.99)
-            filterShips = filterShips.stream().filter((ship -> ship.getSpeed() >= minSpeed && ship.getSpeed() <= maxSpeed)).collect(Collectors.toList());
-
-        if (minCrewSize >= 1 && maxCrewSize <= 9999)
-            filterShips = filterShips.stream().filter((ship -> ship.getCrewSize() >= minCrewSize && ship.getCrewSize() <= maxCrewSize)).collect(Collectors.toList());
-
-
-        filterShips = filterShips.stream().filter((ship -> ship.getRating() >= minRating && ship.getRating() <= maxRating)).collect(Collectors.toList());
-
-        return filterShips;
-
-    }*/
 
 
     private List<Ship> getShipInfosByName(String name, List<Ship> ships) {
@@ -545,6 +535,32 @@ public class ShipController {
 
     private Ship getShipInfosById(long id, List<Ship> ships) {
         return ships.stream().filter(s -> s.getId() == id).findFirst().orElse(null);
+    }
+
+    private Boolean testShipUpdate(Ship ship){
+
+
+        if(ship.getName()!= null && ship.getName().isEmpty())
+            return false;
+
+        if(ship.getPlanet()!= null && ship.getPlanet().isEmpty())
+            return false;
+
+        if(ship.getCrewSize() != null && (ship.getCrewSize() < 1 || ship.getCrewSize() > 9999))
+            return false;
+
+        if(ship.getProdDate() != null ) {
+            Calendar calendar = new GregorianCalendar();
+            calendar.setTime(ship.getProdDate());
+            Integer year = calendar.get(Calendar.YEAR);
+            if(year < 2800 || year > 3019)
+                return false;
+        }
+
+        if (ship.getSpeed() != null && (ship.getSpeed() < 0.0 || ship.getSpeed() > 1.0 ))
+            return false;
+
+        return true;
     }
 
 }
