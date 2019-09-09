@@ -2,7 +2,8 @@ package com.space.controller;
 
 import com.space.model.Ship;
 import com.space.model.ShipType;
-import com.space.repository.ShipRepo;
+import com.space.repository.ShipRepository;
+import com.space.service.ShipService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -15,15 +16,15 @@ import java.util.*;
 @RequestMapping("/rest")
 public class ShipController {
 
-    private final ShipRepo shipRepo;
+    private final ShipService shipService;
 
     @Autowired
-    public ShipController(ShipRepo shipRepo) {
-        this.shipRepo = shipRepo;
+    public ShipController(ShipService shipService) {
+        this.shipService = shipService;
     }
 
     @RequestMapping(value = "/ships", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
-    public List<Ship> list(
+    public List<Ship> getShipsList(
             @RequestParam(name = "name", required = false) String name,
             @RequestParam(name = "planet", required = false) String planet,
             @RequestParam(name = "shipType", required = false) ShipType shipType,
@@ -42,54 +43,16 @@ public class ShipController {
 
     ) {
 
-        List<Ship> shipList = shipRepo.findAll();
+        List<Ship> shipList = shipService.getShipAndInfosByOrder(order);
 
+        shipList = shipService.getShips(name, planet, shipType, after, before, isUsed, minSpeed, maxSpeed, minCrewSize, maxCrewSize, minRating, maxRating, shipList);
 
-        shipList = getShipInfosByOrder(order, shipList);
-
-        if (name != null)
-            shipList = getShipInfosByName(name, shipList);
-
-        if (planet != null)
-            shipList = getShipInfosByPlanet(planet, shipList);
-
-        if (shipType != null)
-            shipList = getShipInfosByShipType(shipType, shipList);
-
-        if (after != null)
-            shipList = getShipInfosByAfter(after, shipList);
-
-        if (before != null)
-            shipList = getShipInfosByBefore(before, shipList);
-
-        if (isUsed != null)
-            shipList = getShipInfosByIsUsed(isUsed, shipList);
-
-        if (minSpeed != null)
-            shipList = getShipInfosByMinSpeed(minSpeed, shipList);
-
-        if (maxSpeed != null)
-            shipList = getShipInfosByMaxSpeed(maxSpeed, shipList);
-
-        if (minCrewSize != null)
-            shipList = getShipInfosByMinCrewSize(minCrewSize, shipList);
-
-        if (maxCrewSize != null)
-            shipList = getShipInfosByMaxCrewSize(maxCrewSize, shipList);
-
-        if (minRating != null)
-            shipList = getShipInfosByMinRating(minRating, shipList);
-
-        if (maxRating != null)
-            shipList = getShipInfosByMaxRating(maxRating, shipList);
-
-
-
-
-        shipList = getShipInfosByPage(pageNumber, pageSize, shipList);
+        shipList = shipService.getShipInfosByPage(pageNumber, pageSize, shipList);
 
         return  shipList;
     }
+
+
 
     @RequestMapping(value = "/ships/count", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
     @ResponseStatus(HttpStatus.OK)
@@ -107,44 +70,9 @@ public class ShipController {
             @RequestParam(name = "minRating", required = false) Double minRating,
             @RequestParam(name = "maxRating", required = false) Double maxRating
     ) {
-        List<Ship> shipList = shipRepo.findAll();
 
-        if (name != null)
-            shipList = getShipInfosByName(name, shipList);
-
-        if (planet != null)
-            shipList = getShipInfosByPlanet(planet, shipList);
-
-        if (shipType != null)
-            shipList = getShipInfosByShipType(shipType, shipList);
-
-        if (after != null)
-            shipList = getShipInfosByAfter(after, shipList);
-
-        if (before != null)
-            shipList = getShipInfosByBefore(before, shipList);
-
-        if (isUsed != null)
-            shipList = getShipInfosByIsUsed(isUsed, shipList);
-
-        if (minSpeed != null)
-            shipList = getShipInfosByMinSpeed(minSpeed, shipList);
-
-        if (maxSpeed != null)
-            shipList = getShipInfosByMaxSpeed(maxSpeed, shipList);
-
-        if (minCrewSize != null)
-            shipList = getShipInfosByMinCrewSize(minCrewSize, shipList);
-
-        if (maxCrewSize != null)
-            shipList = getShipInfosByMaxCrewSize(maxCrewSize, shipList);
-
-        if (minRating != null)
-            shipList = getShipInfosByMinRating(minRating, shipList);
-
-        if (maxRating != null)
-            shipList = getShipInfosByMaxRating(maxRating, shipList);
-
+        List<Ship> shipList = shipService.getShipsAll();
+        shipList = shipService.getShips(name, planet, shipType, after, before, isUsed, minSpeed, maxSpeed, minCrewSize, maxCrewSize, minRating, maxRating, shipList);
 
         return  shipList.size();
 
@@ -166,56 +94,27 @@ public class ShipController {
                     if (ship.getCrewSize() >= 1 && ship.getCrewSize() <= 9999)
                         if (ship.getSpeed() >= 0.01 && ship.getSpeed() <= 0.99)
                             if (ship.getProdDate().getTime() >= 0 && ship.getProdDate().getTime() >= 26192235600000L && ship.getProdDate().getTime() <= 33103198800000L) {
-                                Double k;
-                                Calendar calendar = new GregorianCalendar();
-                                calendar.setTime(ship.getProdDate());
 
-                                Integer year = calendar.get(Calendar.YEAR);
+                                ship = shipService.getRating(ship);
 
-
-                                if (ship.isUsed())
-                                    k = 0.5;
-                                else
-                                    k = 1.0;
-
-                                Double rating = 80 * ship.getSpeed() * k / (3019 - year + 1);
-                                rating = Math.round(rating * 100.00 ) / 100.00;
-
-                                ship.setRating(rating);
-
-
-                                return new ResponseEntity<Ship>(shipRepo.save(ship), HttpStatus.OK);
+                                return new ResponseEntity<Ship>(shipService.save(ship), HttpStatus.OK);
                             }
-
-
-
-
-
-
 
 
         return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
     }
 
 
-    /*
-    Если корабль не найден в БД, необходимо ответить ошибкой с кодом 404.
-    Если значение id не валидное, необходимо ответить ошибкой с кодом 400.
-     */
+
     @RequestMapping(value = "/ships/{id}", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
     public ResponseEntity<?> getShipId(@PathVariable("id")  Long id) {
-
-
 
         if (id <= 0)
             return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
 
-        List<Ship> ships = shipRepo.findAll();
+        List<Ship> ships = shipService.getShipsAll();
 
-//        if (ships.size() < id)
-//            return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
-
-        Ship ship = shipRepo.findAllById(id);
+        Ship ship = shipService.findAllById(id);
         if (ship == null)
             return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
         else
@@ -223,27 +122,22 @@ public class ShipController {
     }
 
 
-    /*
-    Работает
-    Если что отрефакторить updateData в Классе Ship
-    Если корабль не найден в БД, необходимо ответить ошибкой с кодом 404.
-    Если значение id не валидное, необходимо ответить ошибкой с кодом 400.
-     */
+
     @RequestMapping(value = "/ships/{id}", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
     public ResponseEntity<?> update(@PathVariable("id") Long id,
                        @RequestBody(required = false) Ship ship) {
 
-        List<Ship> shipList = shipRepo.findAll();
+        List<Ship> shipList = shipService.getShipsAll();
 
         if (shipList.size() < id)
             return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
 
 
-        if(id == null || id <= 0  || !testShipUpdate(ship))
+        if(id == null || id <= 0  || !shipService.testShipUpdate(ship))
             return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
 
 
-        Ship shipFromDb = shipRepo.findAllById(id);
+        Ship shipFromDb = shipService.findAllById(id);
 
         if (shipFromDb == null)
             return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
@@ -275,24 +169,9 @@ public class ShipController {
             shipFromDb.setCrewSize(ship.getCrewSize());
 
 
-        Double k;
-        Calendar calendar = new GregorianCalendar();
-        calendar.setTime(shipFromDb.getProdDate());
+        shipFromDb = shipService.getRating(shipFromDb);
 
-        Integer year = calendar.get(Calendar.YEAR);
-
-
-        if (shipFromDb.isUsed())
-            k = 0.5;
-        else
-            k = 1.0;
-
-        Double rating = 80 * shipFromDb.getSpeed() * k / (3019 - year + 1);
-        rating = Math.round(rating * 100.00 ) / 100.00;
-
-        shipFromDb.setRating(rating);
-
-        ship = shipRepo.save(shipFromDb);
+        ship = shipService.save(shipFromDb);
 
 
         return new ResponseEntity<Ship>(ship, HttpStatus.OK);
@@ -300,267 +179,24 @@ public class ShipController {
     }
 
 
-   // READY
+   
     @RequestMapping(value = "/ships/{id}", method = RequestMethod.DELETE, produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
     public ResponseEntity<?> delete(@PathVariable("id") Long id) {
 
         if (id <= 0)
             return new ResponseEntity<Ship>(HttpStatus.BAD_REQUEST);
 
-        Ship shipFromDb = shipRepo.findAllById(id);
+        Ship shipFromDb = shipService.findAllById(id);
 
         if (shipFromDb == null)
             return new ResponseEntity<Ship>(HttpStatus.NOT_FOUND);
 
-        shipRepo.delete(shipFromDb);
+        shipService.delete(shipFromDb);
         return new ResponseEntity<Ship>(HttpStatus.OK);
 
     }
 
 
-    private List<Ship> getListShipsByOrderWithFilter(String name,
-                                                     String planet,
-                                                     ShipType shipType,
-                                                     Long after,
-                                                     Long before,
-                                                     Boolean isUsed,
-                                                     Double minSpeed,
-                                                     Double maxSpeed,
-                                                     Integer minCrewSize,
-                                                     Integer maxCrewSize,
-                                                     Double minRating,
-                                                     Double maxRating,
-                                                     ShipOrder order,
-                                                     Integer pageNumber,
-                                                     Integer pageSize) {
 
-        List<Ship> ships;
-        switch (order) {
-            case ID:
-                ships = shipRepo.findAllByOrderByIdAsc();
-                break;
-            case SPEED:
-                ships = shipRepo.findAllByOrderBySpeedAsc();
-                break;
-            case DATE:
-                ships = shipRepo.findAllByOrderByProdDateAsc();
-                break;
-            case RATING:
-                ships = shipRepo.findAllByOrderByRatingAsc();
-                break;
-
-            default:
-                ships = shipRepo.findAll();
-        }
-
-        return ships;
-    }
-
-
-
-    private List<Ship> getShipInfosByName(String name, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getName().contains(name)) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByPlanet(String planet, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getPlanet().contains(planet)) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByShipType(ShipType type, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getShipType() == type) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    public List<Ship> getShipInfosByAfter(Long after, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getProdDate().getTime() >= after) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByBefore(Long before, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getProdDate().getTime() <= before) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByIsUsed(Boolean isUsed, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.isUsed() == isUsed) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-
-    private List<Ship> getShipInfosByMinSpeed(Double minSpeed, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getSpeed() >= minSpeed) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByMaxSpeed(Double maxSpeed, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getSpeed() <= maxSpeed) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByMinCrewSize(Integer minCrewSize, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getCrewSize() >= minCrewSize) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByMaxCrewSize(Integer maxCrewSize, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getCrewSize() <= maxCrewSize) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByMinRating(Double minRating, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getRating() >= minRating) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByMaxRating(Double maxRating, List<Ship> ships) {
-        List<Ship> result = new ArrayList<>();
-        for (Ship ship : ships) {
-            if (ship.getRating() <= maxRating) {
-                result.add(ship);
-            }
-        }
-        return result;
-    }
-
-    private List<Ship> getShipInfosByOrder(ShipOrder order, List<Ship> ships) {
-        if (order == ShipOrder.ID) {
-            ships.sort((o1, o2) -> (int) (o1.getId() - o2.getId()));
-        } else if (order == ShipOrder.DATE) {
-            //Старая строка
-            /*ships.sort((o1, o2) -> (int) (o1.getProdDate().getTime() - o2.getProdDate().getTime()));*/
-
-                ships.sort((o1, o2) -> {
-
-                Calendar calendar1 = new GregorianCalendar();
-                calendar1.setTime(o1.getProdDate());
-                Integer year1 = calendar1.get(Calendar.YEAR);
-
-                Calendar calendar2 = new GregorianCalendar();
-                calendar2.setTime(o2.getProdDate());
-                Integer year2 = calendar2.get(Calendar.YEAR);
-
-                return year1 - year2;
-
-            });
-
-        } else if (order == ShipOrder.SPEED) {
-            ships.sort((o1, o2) -> {
-                if (o1.getSpeed() > o2.getSpeed())
-                    return 1;
-                else if (o1.getSpeed().equals(o2.getSpeed()))
-                    return 0;
-                else
-                    return -1;
-            });
-        } else if (order == ShipOrder.RATING) {
-            ships.sort((o1, o2) -> {
-                if (o1.getRating() > o2.getRating())
-                    return 1;
-                else if (o1.getRating().equals(o2.getRating()))
-                    return 0;
-                else
-                    return -1;
-            });
-        }
-
-        return ships;
-    }
-
-
-    private List<Ship> getShipInfosByPage(Integer pageNumber, Integer pageSize, List<Ship> ships) {
-        int skip = pageNumber * pageSize;
-        List<Ship> result = new ArrayList<>();
-        for (int i = skip; i < Math.min(skip + pageSize, ships.size()); i++) {
-            result.add(ships.get(i));
-        }
-        return result;
-    }
-
-    private Ship getShipInfosById(long id, List<Ship> ships) {
-        return ships.stream().filter(s -> s.getId() == id).findFirst().orElse(null);
-    }
-
-    private Boolean testShipUpdate(Ship ship){
-
-
-        if(ship.getName()!= null && ship.getName().isEmpty())
-            return false;
-
-        if(ship.getPlanet()!= null && ship.getPlanet().isEmpty())
-            return false;
-
-        if(ship.getCrewSize() != null && (ship.getCrewSize() < 1 || ship.getCrewSize() > 9999))
-            return false;
-
-        if(ship.getProdDate() != null ) {
-            Calendar calendar = new GregorianCalendar();
-            calendar.setTime(ship.getProdDate());
-            Integer year = calendar.get(Calendar.YEAR);
-            if(year < 2800 || year > 3019)
-                return false;
-        }
-
-        if (ship.getSpeed() != null && (ship.getSpeed() < 0.0 || ship.getSpeed() > 1.0 ))
-            return false;
-
-        return true;
-    }
 
 }
